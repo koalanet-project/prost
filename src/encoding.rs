@@ -943,6 +943,38 @@ impl sealed::BytesAdapter for Vec<u8> {
     }
 }
 
+#[cfg(feature = "mrpc")]
+impl BytesAdapter for mrpc::alloc::Vec<u8> {}
+
+#[cfg(feature = "mrpc")]
+impl sealed::BytesAdapter for mrpc::alloc::Vec<u8> {
+    fn len(&self) -> usize {
+        mrpc::alloc::Vec::len(self)
+    }
+
+    fn replace_with<B>(&mut self, buf: B)
+    where
+        B: Buf,
+    {
+        self.clear();
+        self.reserve(buf.remaining());
+        // self.put(buf);
+        while buf.has_remaining() {
+            let s = buf.chunk();
+            let l = s.len();
+            self.extend_from_slice(s);
+            buf.advance(l);
+        }
+    }
+
+    fn append_to<B>(&self, buf: &mut B)
+    where
+        B: BufMut,
+    {
+        buf.put(self.as_slice())
+    }
+}
+
 pub mod bytes {
     use super::*;
 

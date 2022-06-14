@@ -133,7 +133,16 @@
 //! [protobuf-build]: https://github.com/protocolbuffers/protobuf/blob/master/src/README.md
 
 mod ast;
+
+#[cfg(not(feature = "mrpc"))]
 mod code_generator;
+
+#[cfg(feature = "mrpc")]
+mod mrpc;
+
+#[cfg(feature = "mrpc")]
+use self::mrpc::code_generator;
+
 mod extern_paths;
 mod ident;
 mod message_graph;
