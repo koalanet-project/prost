@@ -56,7 +56,7 @@ env_logger = { version = "0.8", default-features = false }
 log = "0.4"
 proptest = "1"
 rand = "0.8"
-mrpc = { path = "../koala/src/mrpc" }
+mrpc = { path = "../../mrpc" }
 
 [profile.bench]
 debug = true
