@@ -17,7 +17,8 @@ default = []
 vendored = []
 # When MSRV moves to 1.60, these can change to dep:
 cleanup-markdown = ["pulldown-cmark", "pulldown-cmark-to-cmark"]
-mrpc = []
+mrpc-frontend = []
+mrpc-backend = []
 
 [dependencies]
 bytes = { version = "1", default-features = false }
@@ -26,7 +27,7 @@ itertools = "0.10"
 log = "0.4"
 multimap = { version = "0.8", default-features = false }
 petgraph = { version = "0.6", default-features = false }
-prost = { version = "0.10.0", path = "..", default-features = false, feature = ["mrpc"] }
+prost = { version = "0.10.0", path = "..", default-features = false }
 prost-types = { version = "0.10.0", path = "../prost-types", default-features = false }
 tempfile = "3"
 lazy_static = "1.4.0"

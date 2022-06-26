@@ -48,7 +48,6 @@ std = []
 [dependencies]
 bytes = { version = "1", default-features = false }
 prost-derive = { version = "0.10.0", path = "prost-derive", optional = true }
-mrpc = { path = "../../mrpc", optional = true }
 
 [dev-dependencies]
 criterion = "0.3"

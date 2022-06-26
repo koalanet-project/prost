@@ -134,14 +134,18 @@
 
 mod ast;
 
-#[cfg(not(feature = "mrpc"))]
+#[cfg(not(any(feature = "mrpc-frontend", feature = "mrpc-backend")))]
 mod code_generator;
 
-#[cfg(feature = "mrpc")]
-mod mrpc;
+#[cfg(feature = "mrpc-frontend")]
+mod mrpc_frontend;
+#[cfg(feature = "mrpc-frontend")]
+use mrpc_frontend::code_generator;
 
-#[cfg(feature = "mrpc")]
-use self::mrpc::code_generator;
+#[cfg(feature = "mrpc-backend")]
+mod mrpc_backend;
+#[cfg(feature = "mrpc-backend")]
+use mrpc_backend::code_generator;
 
 mod extern_paths;
 mod ident;

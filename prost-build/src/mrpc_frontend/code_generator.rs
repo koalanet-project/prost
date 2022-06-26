@@ -392,11 +392,17 @@ impl<'a> CodeGenerator<'a> {
             self.buf.push_str("::core::option::Option<");
         }
         if boxed {
-            self.buf.push_str("::mrpc::alloc::Box<");
+            // NOTE: currently, proto message in koala mrpc
+            // should not use Box types
+            // Box is only used by client/server stubs
+            // to place messages on shared memory
+            unimplemented!("mRPC Box not supported yet");
+            // self.buf.push_str("::mrpc::alloc::Box<");
         }
         self.buf.push_str(&ty);
         if boxed {
-            self.buf.push('>');
+            unimplemented!("mRPC Box not supported yet");
+            // self.buf.push('>');
         }
         if repeated || optional {
             self.buf.push('>');
@@ -539,11 +545,12 @@ impl<'a> CodeGenerator<'a> {
             );
 
             if boxed {
-                self.buf.push_str(&format!(
-                    "{}(::mrpc::alloc::Box<{}>),\n",
-                    to_upper_camel(field.name()),
-                    ty
-                ));
+                unimplemented!("mRPC Box not supported yet");
+                // self.buf.push_str(&format!(
+                //     "{}(::mrpc::alloc::Box<{}>),\n",
+                //     to_upper_camel(field.name()),
+                //     ty
+                // ));
             } else {
                 self.buf
                     .push_str(&format!("{}({}),\n", to_upper_camel(field.name()), ty));
