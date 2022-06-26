@@ -2,8 +2,8 @@
 name = "prost"
 version = "0.10.1"
 authors = [
-    "Dan Burkert <dan@danburkert.com>",
-    "Tokio Contributors <team@tokio.rs>",
+  "Dan Burkert <dan@danburkert.com>",
+  "Tokio Contributors <team@tokio.rs>",
 ]
 license = "Apache-2.0"
 repository = "https://github.com/tokio-rs/prost"
@@ -33,7 +33,7 @@ exclude = [
   "fuzz",
   # Same counts for the afl fuzz targets
   "afl",
-  "test-vendored"
+  "test-vendored",
 ]
 
 [lib]
@@ -44,10 +44,12 @@ bench = false
 default = ["prost-derive", "std"]
 no-recursion-limit = []
 std = []
+mrpc-frontend = ["dep:mrpc"]
 
 [dependencies]
 bytes = { version = "1", default-features = false }
 prost-derive = { version = "0.10.0", path = "prost-derive", optional = true }
+mrpc = { path = "../../mrpc", optional = true }
 
 [dev-dependencies]
 criterion = "0.3"

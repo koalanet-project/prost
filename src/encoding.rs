@@ -943,10 +943,10 @@ impl sealed::BytesAdapter for Vec<u8> {
     }
 }
 
-#[cfg(feature = "mrpc")]
+#[cfg(feature = "mrpc-frontend")]
 impl BytesAdapter for mrpc::alloc::Vec<u8> {}
 
-#[cfg(feature = "mrpc")]
+#[cfg(feature = "mrpc-frontend")]
 impl sealed::BytesAdapter for mrpc::alloc::Vec<u8> {
     fn len(&self) -> usize {
         mrpc::alloc::Vec::len(self)
