@@ -321,7 +321,7 @@ impl<'a> CodeGenerator<'a> {
                 .copied()
                 .unwrap_or_default();
             self.buf
-                .push_str(&format!("={:?}", bytes_type.annotation()));
+                .push_str(&format!("={:?}", bytes_type.prost_annotation()));
         }
 
         match field.label() {
@@ -435,7 +435,7 @@ impl<'a> CodeGenerator<'a> {
 
         self.buf.push_str(&format!(
             "#[prost({}=\"{}, {}\", tag=\"{}\")]\n",
-            map_type.annotation(),
+            map_type.prost_annotation(),
             key_tag,
             value_tag,
             field.number()
@@ -445,7 +445,7 @@ impl<'a> CodeGenerator<'a> {
         self.buf.push_str(&format!(
             "pub {}: {}<{}, {}>,\n",
             to_snake(field.name()),
-            map_type.rust_type(),
+            map_type.prost_rust_type(),
             key_ty,
             value_ty
         ));
@@ -795,7 +795,7 @@ impl<'a> CodeGenerator<'a> {
                 .get_first_field(fq_message_name, field.name())
                 .copied()
                 .unwrap_or_default()
-                .rust_type()
+                .prost_rust_type()
                 .to_owned(),
             Type::Group | Type::Message => self.resolve_ident(field.type_name()),
         }
@@ -1094,7 +1094,7 @@ fn build_enum_value_mappings<'a>(
 
 impl MapType {
     /// The `prost-derive` annotation type corresponding to the map type.
-    fn annotation(&self) -> &'static str {
+    fn prost_annotation(&self) -> &'static str {
         match self {
             MapType::HashMap => "map",
             MapType::BTreeMap => "btree_map",
@@ -1102,7 +1102,7 @@ impl MapType {
     }
 
     /// The fully-qualified Rust type corresponding to the map type.
-    fn rust_type(&self) -> &'static str {
+    fn prost_rust_type(&self) -> &'static str {
         match self {
             MapType::HashMap => "::std::collections::HashMap",
             MapType::BTreeMap => "::prost::alloc::collections::BTreeMap",
@@ -1112,7 +1112,7 @@ impl MapType {
 
 impl BytesType {
     /// The `prost-derive` annotation type corresponding to the bytes type.
-    fn annotation(&self) -> &'static str {
+    fn prost_annotation(&self) -> &'static str {
         match self {
             BytesType::Vec => "vec",
             BytesType::Bytes => "bytes",
@@ -1120,7 +1120,7 @@ impl BytesType {
     }
 
     /// The fully-qualified Rust type corresponding to the bytes type.
-    fn rust_type(&self) -> &'static str {
+    fn prost_rust_type(&self) -> &'static str {
         match self {
             BytesType::Vec => "::prost::alloc::vec::Vec<u8>",
             BytesType::Bytes => "::prost::bytes::Bytes",

@@ -134,18 +134,14 @@
 
 mod ast;
 
-#[cfg(not(any(feature = "mrpc-frontend", feature = "mrpc-backend")))]
 mod code_generator;
 
 #[cfg(feature = "mrpc-frontend")]
 mod mrpc_frontend;
-#[cfg(feature = "mrpc-frontend")]
-use mrpc_frontend::code_generator;
 
 #[cfg(feature = "mrpc-backend")]
 mod mrpc_backend;
-#[cfg(feature = "mrpc-backend")]
-use mrpc_backend::code_generator;
+
 
 mod extern_paths;
 mod ident;
@@ -168,11 +164,19 @@ use prost::Message;
 use prost_types::{FileDescriptorProto, FileDescriptorSet};
 
 pub use crate::ast::{Comments, Method, Service};
-use crate::code_generator::CodeGenerator;
 use crate::extern_paths::ExternPaths;
 use crate::ident::to_snake;
 use crate::message_graph::MessageGraph;
 use crate::path::PathMap;
+
+
+pub enum CodeGeneratorVariant {
+    Vanilla,
+    #[allow(non_camel_case_types)]
+    mRPCFrontend,
+    #[allow(non_camel_case_types)]
+    mRPCBackend,
+}
 
 /// A service generator takes a service descriptor and generates Rust code.
 ///
@@ -804,6 +808,34 @@ impl Config {
         protos: &[impl AsRef<Path>],
         includes: &[impl AsRef<Path>],
     ) -> Result<()> {
+        self.compile_inner(protos, includes, CodeGeneratorVariant::Vanilla)        
+    }
+
+    /// Compile `.proto` files into Rust files, for mRPC frontend
+    pub fn compile_protos_mrpc_frontend(
+        &mut self,
+        protos: &[impl AsRef<Path>],
+        includes: &[impl AsRef<Path>],
+    ) -> Result<()> {
+        self.compile_inner(protos, includes, CodeGeneratorVariant::mRPCFrontend)
+    }
+
+    /// Compile `.proto` files into Rust files, for mRPC backend
+    pub fn compile_protos_mrpc_backend(
+        &mut self,
+        protos: &[impl AsRef<Path>],
+        includes: &[impl AsRef<Path>],
+    ) -> Result<()> {
+        self.compile_inner(protos, includes, CodeGeneratorVariant::mRPCBackend)
+    }
+
+
+    fn compile_inner(
+        &mut self,
+        protos: &[impl AsRef<Path>],
+        includes: &[impl AsRef<Path>],
+        variant: CodeGeneratorVariant,
+    ) -> Result<()> {
         let mut target_is_env = false;
         let target: PathBuf = self.out_dir.clone().map(Ok).unwrap_or_else(|| {
             env::var_os("OUT_DIR")
@@ -903,7 +935,7 @@ impl Config {
             })
             .collect::<HashMap<Module, String>>();
 
-        let modules = self.generate(requests)?;
+        let modules = self.generate(requests, variant)?;
         for (module, content) in &modules {
             let file_name = file_names
                 .get(module)
@@ -1009,6 +1041,7 @@ impl Config {
     pub fn generate(
         &mut self,
         requests: Vec<(Module, FileDescriptorProto)>,
+        variant: CodeGeneratorVariant,
     ) -> Result<HashMap<Module, String>> {
         let mut modules = HashMap::new();
         let mut packages = HashMap::new();
@@ -1025,7 +1058,11 @@ impl Config {
             }
 
             let buf = modules.entry(request.0).or_insert_with(String::new);
-            CodeGenerator::generate(self, &message_graph, &extern_paths, request.1, buf);
+            match variant {
+                CodeGeneratorVariant::Vanilla => code_generator::CodeGenerator::generate(self, &message_graph, &extern_paths, request.1, buf),
+                CodeGeneratorVariant::mRPCFrontend => mrpc_frontend::code_generator::CodeGenerator::generate(self, &message_graph, &extern_paths, request.1, buf),
+                CodeGeneratorVariant::mRPCBackend => mrpc_backend::code_generator::CodeGenerator::generate(self, &message_graph, &extern_paths, request.1, buf),
+            }
         }
 
         if let Some(ref mut service_generator) = self.service_generator {
@@ -1062,7 +1099,7 @@ impl default::Default for Config {
 }
 
 impl fmt::Debug for Config {
-    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+   fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.debug_struct("Config")
             .field("file_descriptor_set_path", &self.file_descriptor_set_path)
             .field("service_generator", &self.service_generator.is_some())
