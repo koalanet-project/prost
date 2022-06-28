@@ -142,7 +142,6 @@ mod mrpc_frontend;
 #[cfg(feature = "mrpc-backend")]
 mod mrpc_backend;
 
-
 mod extern_paths;
 mod ident;
 mod message_graph;
@@ -168,7 +167,6 @@ use crate::extern_paths::ExternPaths;
 use crate::ident::to_snake;
 use crate::message_graph::MessageGraph;
 use crate::path::PathMap;
-
 
 pub enum CodeGeneratorVariant {
     Vanilla,
@@ -808,7 +806,7 @@ impl Config {
         protos: &[impl AsRef<Path>],
         includes: &[impl AsRef<Path>],
     ) -> Result<()> {
-        self.compile_inner(protos, includes, CodeGeneratorVariant::Vanilla)        
+        self.compile_inner(protos, includes, CodeGeneratorVariant::Vanilla)
     }
 
     /// Compile `.proto` files into Rust files, for mRPC frontend
@@ -828,7 +826,6 @@ impl Config {
     ) -> Result<()> {
         self.compile_inner(protos, includes, CodeGeneratorVariant::mRPCBackend)
     }
-
 
     fn compile_inner(
         &mut self,
@@ -1059,9 +1056,31 @@ impl Config {
 
             let buf = modules.entry(request.0).or_insert_with(String::new);
             match variant {
-                CodeGeneratorVariant::Vanilla => code_generator::CodeGenerator::generate(self, &message_graph, &extern_paths, request.1, buf),
-                CodeGeneratorVariant::mRPCFrontend => mrpc_frontend::code_generator::CodeGenerator::generate(self, &message_graph, &extern_paths, request.1, buf),
-                CodeGeneratorVariant::mRPCBackend => mrpc_backend::code_generator::CodeGenerator::generate(self, &message_graph, &extern_paths, request.1, buf),
+                CodeGeneratorVariant::Vanilla => code_generator::CodeGenerator::generate(
+                    self,
+                    &message_graph,
+                    &extern_paths,
+                    request.1,
+                    buf,
+                ),
+                CodeGeneratorVariant::mRPCFrontend => {
+                    mrpc_frontend::code_generator::CodeGenerator::generate(
+                        self,
+                        &message_graph,
+                        &extern_paths,
+                        request.1,
+                        buf,
+                    )
+                }
+                CodeGeneratorVariant::mRPCBackend => {
+                    mrpc_backend::code_generator::CodeGenerator::generate(
+                        self,
+                        &message_graph,
+                        &extern_paths,
+                        request.1,
+                        buf,
+                    )
+                }
             }
         }
 
@@ -1099,7 +1118,7 @@ impl default::Default for Config {
 }
 
 impl fmt::Debug for Config {
-   fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.debug_struct("Config")
             .field("file_descriptor_set_path", &self.file_descriptor_set_path)
             .field("service_generator", &self.service_generator.is_some())
