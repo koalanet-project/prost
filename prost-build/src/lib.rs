@@ -1103,6 +1103,9 @@ impl Config {
                     buf,
                 ),
                 CodeGeneratorVariant::mRPCFrontend => {
+                    #[cfg(not(feature = "mrpc-frontend"))]
+                    panic!("mrpc-frontend feature not enabled");
+                    #[cfg(feature = "mrpc-frontend")]
                     mrpc_frontend::code_generator::CodeGenerator::generate(
                         self,
                         &message_graph,
@@ -1394,9 +1397,10 @@ mod tests {
             state.finalized += 1;
         }
 
-        fn finalize_package(&mut self, package: &str, _buf: &mut String) {
+        fn finalize_package(&mut self, package: Package, _buf: &mut String) {
+            let package = package.package;
             let mut state = self.state.borrow_mut();
-            state.package_names.push(package.to_string());
+            state.package_names.push(package);
         }
     }
 
