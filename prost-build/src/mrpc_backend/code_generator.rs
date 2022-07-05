@@ -726,6 +726,8 @@ impl<'a> CodeGenerator<'a> {
                     comments,
                     input_type,
                     output_type,
+                    input_package: None,
+                    output_package: None,
                     input_proto_type,
                     output_proto_type,
                     options: method.options.unwrap_or_default(),

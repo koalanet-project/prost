@@ -186,6 +186,10 @@ pub struct Method {
     pub input_type: String,
     /// The output Rust type.
     pub output_type: String,
+    /// The Rust module that the input Rust type is defined in
+    pub input_package: Option<String>,
+    /// The Rust module that the output Rust type is defined in
+    pub output_package: Option<String>,
     /// The input Protobuf type.
     pub input_proto_type: String,
     /// The output Protobuf type.

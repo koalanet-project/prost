@@ -176,6 +176,12 @@ pub enum CodeGeneratorVariant {
     mRPCBackend,
 }
 
+pub struct Package {
+    /// e.g., "foo", "foo.bar", etc.
+    pub package: String,
+    /// .proto files that are part of this package.
+    pub source_code_files: Vec<PathBuf>,
+}
 /// A service generator takes a service descriptor and generates Rust code.
 ///
 /// `ServiceGenerator` can be used to generate application-specific interfaces
@@ -218,7 +224,7 @@ pub trait ServiceGenerator {
     /// `.proto` files.
     ///
     /// The default implementation is empty and does nothing.
-    fn finalize_package(&mut self, _package: &str, _buf: &mut String) {}
+    fn finalize_package(&mut self, _package: Package, _buf: &mut String) {}
 }
 
 /// The map collection type to output for Protobuf `map` fields.
@@ -845,6 +851,9 @@ impl Config {
                 })
         })?;
 
+        // NOTE: protos should have different filenames, even they are in different directories.
+        // otherwise, protoc will complain "Input is shadowed in the --proto_path by ...".
+
         // TODO: This should probably emit 'rerun-if-changed=PATH' directives for cargo, however
         // according to [1] if any are output then those paths replace the default crate root,
         // which is undesirable. Figure out how to do it in an additive way; perhaps gcc-rs has
@@ -915,12 +924,36 @@ impl Config {
             .file
             .into_iter()
             .map(|descriptor| {
-                (
-                    Module::from_protobuf_package_name(descriptor.package()),
-                    descriptor,
-                )
+                // filename of the proto file, not including path
+                let filename = descriptor.name();
+                let mut matches = includes
+                    .iter()
+                    .filter(|path| path.as_ref().join(filename).is_file());
+                let parent_dir = matches.next().ok_or(Error::new(
+                    ErrorKind::InvalidInput,
+                    format!(
+                        "proto file {} is not found in any of the include directories",
+                        filename
+                    ),
+                ))?;
+                if let Some(_) = matches.next() {
+                    Err(Error::new(
+                        ErrorKind::InvalidInput,
+                        format!(
+                            "proto file {} is found in multiple include directories",
+                            filename
+                        ),
+                    ))
+                } else {
+                    let request = (
+                        Module::from_protobuf_package_name(descriptor.package()),
+                        parent_dir.as_ref().join(filename),
+                        descriptor,
+                    );
+                    Ok(request)
+                }
             })
-            .collect::<Vec<_>>();
+            .collect::<Result<Vec<_>>>()?;
 
         let file_names = requests
             .iter()
@@ -1029,7 +1062,7 @@ impl Config {
         outfile.write_all(format!("{}{}\n", ("    ").to_owned().repeat(depth), line).as_bytes())
     }
 
-    /// Processes a set of modules and file descriptors, returning a map of modules to generated
+    /// Processes a set of modules, proto file paths and file descriptors, returning a map of modules to generated
     /// code contents.
     ///
     /// This is generally used when control over the output should not be managed by Prost,
@@ -1037,30 +1070,36 @@ impl Config {
     /// `build.rs` file, instead use [`compile_protos()`].
     pub fn generate(
         &mut self,
-        requests: Vec<(Module, FileDescriptorProto)>,
+        requests: Vec<(Module, PathBuf, FileDescriptorProto)>,
         variant: CodeGeneratorVariant,
     ) -> Result<HashMap<Module, String>> {
         let mut modules = HashMap::new();
         let mut packages = HashMap::new();
+        let mut package_compositions = HashMap::new();
 
-        let message_graph = MessageGraph::new(requests.iter().map(|x| &x.1))
+        let message_graph = MessageGraph::new(requests.iter().map(|x| &x.2))
             .map_err(|error| Error::new(ErrorKind::InvalidInput, error))?;
         let extern_paths = ExternPaths::new(&self.extern_paths, self.prost_types)
             .map_err(|error| Error::new(ErrorKind::InvalidInput, error))?;
 
         for request in requests {
             // Only record packages that have services
-            if !request.1.service.is_empty() {
-                packages.insert(request.0.clone(), request.1.package().to_string());
+            // Record all packages
+            if !request.2.service.is_empty() {
+                packages.insert(request.0.clone(), request.2.package().to_string());
             }
 
-            let buf = modules.entry(request.0).or_insert_with(String::new);
+            let buf = modules.entry(request.0.clone()).or_insert_with(String::new);
+            let components = package_compositions
+                .entry(request.0)
+                .or_insert_with(Vec::new);
+            components.push(request.1);
             match variant {
                 CodeGeneratorVariant::Vanilla => code_generator::CodeGenerator::generate(
                     self,
                     &message_graph,
                     &extern_paths,
-                    request.1,
+                    request.2,
                     buf,
                 ),
                 CodeGeneratorVariant::mRPCFrontend => {
@@ -1068,16 +1107,19 @@ impl Config {
                         self,
                         &message_graph,
                         &extern_paths,
-                        request.1,
+                        request.2,
                         buf,
                     )
                 }
                 CodeGeneratorVariant::mRPCBackend => {
+                    #[cfg(not(feature = "mrpc-backend"))]
+                    panic!("mrpc-backend feature not enabled");
+                    #[cfg(feature = "mrpc-backend")]
                     mrpc_backend::code_generator::CodeGenerator::generate(
                         self,
                         &message_graph,
                         &extern_paths,
-                        request.1,
+                        request.2,
                         buf,
                     )
                 }
@@ -1087,7 +1129,12 @@ impl Config {
         if let Some(ref mut service_generator) = self.service_generator {
             for (module, package) in packages {
                 let buf = modules.get_mut(&module).unwrap();
-                service_generator.finalize_package(&package, buf);
+                let components = package_compositions.remove(&module).unwrap();
+                let package_info = Package {
+                    package: package.clone(),
+                    source_code_files: components,
+                };
+                service_generator.finalize_package(package_info, buf);
             }
         }
 

@@ -722,6 +722,8 @@ impl<'a> CodeGenerator<'a> {
                 let output_proto_type = method.output_type.take().unwrap();
                 let input_type = self.resolve_ident(&input_proto_type);
                 let output_type = self.resolve_ident(&output_proto_type);
+                let input_package = self.resolve_package(&input_proto_type);
+                let output_package = self.resolve_package(&output_proto_type);
                 let client_streaming = method.client_streaming();
                 let server_streaming = method.server_streaming();
 
@@ -731,6 +733,8 @@ impl<'a> CodeGenerator<'a> {
                     comments,
                     input_type,
                     output_type,
+                    input_package,
+                    output_package,
                     input_proto_type,
                     output_proto_type,
                     options: method.options.unwrap_or_default(),
@@ -840,6 +844,49 @@ impl<'a> CodeGenerator<'a> {
             .chain(ident_path.map(to_snake))
             .chain(iter::once(to_upper_camel(ident_type)))
             .join("::")
+    }
+
+    /// Returns the rust pacakge that the message identified by pb_ident is defined in.
+    /// If the message is an extern path, returns None.
+    /// pb_ident must be a message type
+    fn resolve_package(&self, pb_ident: &str) -> Option<String> {
+        assert_eq!(".", &pb_ident[..1]);
+        if let Some(_) = self.extern_paths.resolve_ident(pb_ident) {
+            return None;
+        }
+
+        let mut local_path = self.package.split('.').peekable();
+
+        let mut ident_package_path =
+            if let Some(package) = self.message_graph.get_message_package(pb_ident) {
+                package[1..].split('.').peekable()
+            } else {
+                panic!("could not find package for {}", pb_ident);
+            };
+
+        // If no package is specified the start of the package name will be '.'
+        // and split will return an empty string ("") which breaks resolution
+        // The fix to this is to ignore the first item if it is empty.
+        if local_path.peek().map_or(false, |s| s.is_empty()) {
+            local_path.next();
+        }
+
+        // Same applies to ident package path
+        if ident_package_path.peek().map_or(false, |s| s.is_empty()) {
+            ident_package_path.next();
+        }
+
+        while local_path.peek().is_some() && local_path.peek() == ident_package_path.peek() {
+            local_path.next();
+            ident_package_path.next();
+        }
+
+        let rust_path = local_path
+            .map(|_| "super".to_string())
+            .chain(ident_package_path.map(to_snake))
+            .join("::");
+
+        Some(rust_path)
     }
 
     fn field_type_tag(&self, field: &FieldDescriptorProto) -> Cow<'static, str> {

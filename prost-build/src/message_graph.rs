@@ -12,6 +12,8 @@ use prost_types::{field_descriptor_proto, DescriptorProto, FileDescriptorProto};
 pub struct MessageGraph {
     index: HashMap<String, NodeIndex>,
     graph: Graph<String, ()>,
+    // the package that each message is defined in
+    message_packages: HashMap<String, String>,
 }
 
 impl MessageGraph {
@@ -21,6 +23,7 @@ impl MessageGraph {
         let mut msg_graph = MessageGraph {
             index: HashMap::new(),
             graph: Graph::new(),
+            message_packages: HashMap::new(),
         };
 
         for file in files {
@@ -30,7 +33,7 @@ impl MessageGraph {
                 file.package.as_ref().map(String::as_str).unwrap_or("")
             );
             for msg in &file.message_type {
-                msg_graph.add_message(&package, msg);
+                msg_graph.add_message(&package, &package, msg);
             }
         }
 
@@ -41,6 +44,7 @@ impl MessageGraph {
         let MessageGraph {
             ref mut index,
             ref mut graph,
+            ..
         } = *self;
         assert_eq!(b'.', msg_name.as_bytes()[0]);
         *index
@@ -53,9 +57,12 @@ impl MessageGraph {
     /// Because prost does not box message fields, recursively nested messages would not compile in Rust.
     /// To allow recursive messages, the message graph is used to detect recursion and automatically box the recursive field.
     /// Since repeated messages are already put in a Vec, boxing them isn’t necessary even if the reference is recursive.
-    fn add_message(&mut self, package: &str, msg: &DescriptorProto) {
-        let msg_name = format!("{}.{}", package, msg.name.as_ref().unwrap());
+    fn add_message(&mut self, root_package: &str, module: &str, msg: &DescriptorProto) {
+        let msg_name = format!("{}.{}", module, msg.name.as_ref().unwrap());
         let msg_index = self.get_or_insert_index(msg_name.clone());
+        // root_package starts with `.`, as asserted by `assert_eq!(b'.', msg_name.as_bytes()[0])`
+        self.message_packages
+            .insert(msg_name.clone(), root_package.to_string());
 
         for field in &msg.field {
             if field.r#type() == field_descriptor_proto::Type::Message
@@ -67,7 +74,7 @@ impl MessageGraph {
         }
 
         for msg in &msg.nested_type {
-            self.add_message(&msg_name, msg);
+            self.add_message(root_package, &msg_name, msg);
         }
     }
 
@@ -83,5 +90,10 @@ impl MessageGraph {
         };
 
         has_path_connecting(&self.graph, outer, inner, None)
+    }
+
+    /// Returns the package (fully qualifed proto path) that the message is defined in.
+    pub fn get_message_package(&self, msg_name: &str) -> Option<&str> {
+        self.message_packages.get(msg_name).map(String::as_str)
     }
 }
