@@ -392,8 +392,7 @@ impl<'a> CodeGenerator<'a> {
             self.buf.push_str("::core::option::Option<");
         }
         if boxed {
-            unimplemented!("mRPC Box not suppported yet");
-            // self.buf.push_str("::mrpc_marshal::shadow::Box<");
+            self.buf.push_str("::mrpc_marshal::shadow::Box<");
         }
         self.buf.push_str(&ty);
         if boxed {
@@ -540,12 +539,11 @@ impl<'a> CodeGenerator<'a> {
             );
 
             if boxed {
-                unimplemented!("mRPC Box not suppported yet");
-                // self.buf.push_str(&format!(
-                //     "{}(::mrpc_marshal::shadow::Box<{}>),\n",
-                //     to_upper_camel(field.name()),
-                //     ty
-                // ));
+                self.buf.push_str(&format!(
+                    "{}(::mrpc_marshal::shadow::Box<{}>),\n",
+                    to_upper_camel(field.name()),
+                    ty
+                ));
             } else {
                 self.buf
                     .push_str(&format!("{}({}),\n", to_upper_camel(field.name()), ty));
