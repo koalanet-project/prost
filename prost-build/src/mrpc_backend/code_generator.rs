@@ -184,7 +184,7 @@ impl<'a> CodeGenerator<'a> {
         self.append_type_attributes(&fq_message_name);
         self.push_indent();
         self.buf
-            .push_str("#[derive(Clone, PartialEq, ::prost::Message)]\n");
+            .push_str("#[derive(Debug, ::mrpc_derive::Message)]\n");
         self.push_indent();
         self.buf.push_str("pub struct ");
         self.buf.push_str(&to_upper_camel(&message_name));
@@ -321,7 +321,7 @@ impl<'a> CodeGenerator<'a> {
                 .copied()
                 .unwrap_or_default();
             self.buf
-                .push_str(&format!("={:?}", bytes_type.annotation()));
+                .push_str(&format!("={:?}", bytes_type.mrpc_backend_annotation()));
         }
 
         match field.label() {
@@ -387,12 +387,12 @@ impl<'a> CodeGenerator<'a> {
         self.buf.push_str(&to_snake(field.name()));
         self.buf.push_str(": ");
         if repeated {
-            self.buf.push_str("::mrpc::alloc::Vec<");
+            self.buf.push_str("::mrpc_marshal::shadow::Vec<");
         } else if optional {
             self.buf.push_str("::core::option::Option<");
         }
         if boxed {
-            self.buf.push_str("::mrpc::alloc::Box<");
+            self.buf.push_str("::mrpc_marshal::shadow::Box<");
         }
         self.buf.push_str(&ty);
         if boxed {
@@ -435,7 +435,7 @@ impl<'a> CodeGenerator<'a> {
 
         self.buf.push_str(&format!(
             "#[prost({}=\"{}, {}\", tag=\"{}\")]\n",
-            map_type.annotation(),
+            map_type.mrpc_backend_annotation(),
             key_tag,
             value_tag,
             field.number()
@@ -445,7 +445,7 @@ impl<'a> CodeGenerator<'a> {
         self.buf.push_str(&format!(
             "pub {}: {}<{}, {}>,\n",
             to_snake(field.name()),
-            map_type.rust_type(),
+            map_type.mrpc_backend_rust_type(),
             key_ty,
             value_ty
         ));
@@ -540,7 +540,7 @@ impl<'a> CodeGenerator<'a> {
 
             if boxed {
                 self.buf.push_str(&format!(
-                    "{}(::mrpc::alloc::Box<{}>),\n",
+                    "{}(::mrpc_marshal::shadow::Box<{}>),\n",
                     to_upper_camel(field.name()),
                     ty
                 ));
@@ -724,6 +724,8 @@ impl<'a> CodeGenerator<'a> {
                     comments,
                     input_type,
                     output_type,
+                    input_package: None,
+                    output_package: None,
                     input_proto_type,
                     output_proto_type,
                     options: method.options.unwrap_or_default(),
@@ -788,14 +790,14 @@ impl<'a> CodeGenerator<'a> {
             Type::Int32 | Type::Sfixed32 | Type::Sint32 | Type::Enum => String::from("i32"),
             Type::Int64 | Type::Sfixed64 | Type::Sint64 => String::from("i64"),
             Type::Bool => String::from("bool"),
-            Type::String => String::from("::mrpc::alloc::String"),
+            Type::String => String::from("::mrpc_shadow::String"),
             Type::Bytes => self
                 .config
                 .bytes_type
                 .get_first_field(fq_message_name, field.name())
                 .copied()
                 .unwrap_or_default()
-                .rust_type()
+                .mrpc_backend_rust_type()
                 .to_owned(),
             Type::Group | Type::Message => self.resolve_ident(field.type_name()),
         }
@@ -1094,7 +1096,7 @@ fn build_enum_value_mappings<'a>(
 
 impl MapType {
     /// The `prost-derive` annotation type corresponding to the map type.
-    fn annotation(&self) -> &'static str {
+    fn mrpc_backend_annotation(&self) -> &'static str {
         match self {
             MapType::HashMap => "map",
             MapType::BTreeMap => "btree_map",
@@ -1102,7 +1104,7 @@ impl MapType {
     }
 
     /// The fully-qualified Rust type corresponding to the map type.
-    fn rust_type(&self) -> &'static str {
+    fn mrpc_backend_rust_type(&self) -> &'static str {
         match self {
             MapType::HashMap => "::std::collections::HashMap",
             MapType::BTreeMap => "::prost::alloc::collections::BTreeMap",
@@ -1112,7 +1114,7 @@ impl MapType {
 
 impl BytesType {
     /// The `prost-derive` annotation type corresponding to the bytes type.
-    fn annotation(&self) -> &'static str {
+    fn mrpc_backend_annotation(&self) -> &'static str {
         match self {
             BytesType::Vec => "vec",
             BytesType::Bytes => "bytes",
@@ -1120,12 +1122,10 @@ impl BytesType {
     }
 
     /// The fully-qualified Rust type corresponding to the bytes type.
-    fn rust_type(&self) -> &'static str {
+    fn mrpc_backend_rust_type(&self) -> &'static str {
         match self {
-            // BytesType::Vec => "::prost::alloc::vec::Vec<u8>",
-            BytesType::Vec => "::mrpc::alloc::Vec<u8>",
-            // BytesType::Bytes => "::prost::bytes::Bytes",
-            BytesType::Bytes => panic!("mRPC bytes feature not supported yet"),
+            BytesType::Vec => "::mrpc_marshal::shadow::Vec<u8>",
+            BytesType::Bytes => unimplemented!("mRPC bytes feature not supported yet"),
         }
     }
 }

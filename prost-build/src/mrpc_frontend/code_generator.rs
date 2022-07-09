@@ -321,7 +321,7 @@ impl<'a> CodeGenerator<'a> {
                 .copied()
                 .unwrap_or_default();
             self.buf
-                .push_str(&format!("={:?}", bytes_type.prost_annotation()));
+                .push_str(&format!("={:?}", bytes_type.mrpc_frontend_annotation()));
         }
 
         match field.label() {
@@ -387,12 +387,12 @@ impl<'a> CodeGenerator<'a> {
         self.buf.push_str(&to_snake(field.name()));
         self.buf.push_str(": ");
         if repeated {
-            self.buf.push_str("::prost::alloc::vec::Vec<");
+            self.buf.push_str("::mrpc::alloc::Vec<");
         } else if optional {
             self.buf.push_str("::core::option::Option<");
         }
         if boxed {
-            self.buf.push_str("::prost::alloc::boxed::Box<");
+            self.buf.push_str("::mrpc::alloc::Box<");
         }
         self.buf.push_str(&ty);
         if boxed {
@@ -435,7 +435,7 @@ impl<'a> CodeGenerator<'a> {
 
         self.buf.push_str(&format!(
             "#[prost({}=\"{}, {}\", tag=\"{}\")]\n",
-            map_type.prost_annotation(),
+            map_type.mrpc_frontend_annotation(),
             key_tag,
             value_tag,
             field.number()
@@ -445,7 +445,7 @@ impl<'a> CodeGenerator<'a> {
         self.buf.push_str(&format!(
             "pub {}: {}<{}, {}>,\n",
             to_snake(field.name()),
-            map_type.prost_rust_type(),
+            map_type.mrpc_frontend_rust_type(),
             key_ty,
             value_ty
         ));
@@ -540,7 +540,7 @@ impl<'a> CodeGenerator<'a> {
 
             if boxed {
                 self.buf.push_str(&format!(
-                    "{}(::prost::alloc::boxed::Box<{}>),\n",
+                    "{}(::mrpc::alloc::Box<{}>),\n",
                     to_upper_camel(field.name()),
                     ty
                 ));
@@ -715,6 +715,8 @@ impl<'a> CodeGenerator<'a> {
                 let output_proto_type = method.output_type.take().unwrap();
                 let input_type = self.resolve_ident(&input_proto_type);
                 let output_type = self.resolve_ident(&output_proto_type);
+                let input_package = self.resolve_package(&input_proto_type);
+                let output_package = self.resolve_package(&output_proto_type);
                 let client_streaming = method.client_streaming();
                 let server_streaming = method.server_streaming();
 
@@ -724,8 +726,8 @@ impl<'a> CodeGenerator<'a> {
                     comments,
                     input_type,
                     output_type,
-                    input_package: None,
-                    output_package: None,
+                    input_package,
+                    output_package,
                     input_proto_type,
                     output_proto_type,
                     options: method.options.unwrap_or_default(),
@@ -790,14 +792,14 @@ impl<'a> CodeGenerator<'a> {
             Type::Int32 | Type::Sfixed32 | Type::Sint32 | Type::Enum => String::from("i32"),
             Type::Int64 | Type::Sfixed64 | Type::Sint64 => String::from("i64"),
             Type::Bool => String::from("bool"),
-            Type::String => String::from("::prost::alloc::string::String"),
+            Type::String => String::from("::mrpc::alloc::String"),
             Type::Bytes => self
                 .config
                 .bytes_type
                 .get_first_field(fq_message_name, field.name())
                 .copied()
                 .unwrap_or_default()
-                .prost_rust_type()
+                .mrpc_frontend_rust_type()
                 .to_owned(),
             Type::Group | Type::Message => self.resolve_ident(field.type_name()),
         }
@@ -835,6 +837,49 @@ impl<'a> CodeGenerator<'a> {
             .chain(ident_path.map(to_snake))
             .chain(iter::once(to_upper_camel(ident_type)))
             .join("::")
+    }
+
+    /// Returns the rust pacakge that the message identified by pb_ident is defined in.
+    /// If the message is an extern path, returns None.
+    /// pb_ident must be a message type
+    fn resolve_package(&self, pb_ident: &str) -> Option<String> {
+        assert_eq!(".", &pb_ident[..1]);
+        if let Some(_) = self.extern_paths.resolve_ident(pb_ident) {
+            return None;
+        }
+
+        let mut local_path = self.package.split('.').peekable();
+
+        let mut ident_package_path =
+            if let Some(package) = self.message_graph.get_message_package(pb_ident) {
+                package[1..].split('.').peekable()
+            } else {
+                panic!("could not find package for {}", pb_ident);
+            };
+
+        // If no package is specified the start of the package name will be '.'
+        // and split will return an empty string ("") which breaks resolution
+        // The fix to this is to ignore the first item if it is empty.
+        if local_path.peek().map_or(false, |s| s.is_empty()) {
+            local_path.next();
+        }
+
+        // Same applies to ident package path
+        if ident_package_path.peek().map_or(false, |s| s.is_empty()) {
+            ident_package_path.next();
+        }
+
+        while local_path.peek().is_some() && local_path.peek() == ident_package_path.peek() {
+            local_path.next();
+            ident_package_path.next();
+        }
+
+        let rust_path = local_path
+            .map(|_| "super".to_string())
+            .chain(ident_package_path.map(to_snake))
+            .join("::");
+
+        Some(rust_path)
     }
 
     fn field_type_tag(&self, field: &FieldDescriptorProto) -> Cow<'static, str> {
@@ -1096,7 +1141,7 @@ fn build_enum_value_mappings<'a>(
 
 impl MapType {
     /// The `prost-derive` annotation type corresponding to the map type.
-    fn prost_annotation(&self) -> &'static str {
+    fn mrpc_frontend_annotation(&self) -> &'static str {
         match self {
             MapType::HashMap => "map",
             MapType::BTreeMap => "btree_map",
@@ -1104,7 +1149,7 @@ impl MapType {
     }
 
     /// The fully-qualified Rust type corresponding to the map type.
-    fn prost_rust_type(&self) -> &'static str {
+    fn mrpc_frontend_rust_type(&self) -> &'static str {
         match self {
             MapType::HashMap => "::std::collections::HashMap",
             MapType::BTreeMap => "::prost::alloc::collections::BTreeMap",
@@ -1114,7 +1159,7 @@ impl MapType {
 
 impl BytesType {
     /// The `prost-derive` annotation type corresponding to the bytes type.
-    fn prost_annotation(&self) -> &'static str {
+    fn mrpc_frontend_annotation(&self) -> &'static str {
         match self {
             BytesType::Vec => "vec",
             BytesType::Bytes => "bytes",
@@ -1122,10 +1167,12 @@ impl BytesType {
     }
 
     /// The fully-qualified Rust type corresponding to the bytes type.
-    fn prost_rust_type(&self) -> &'static str {
+    fn mrpc_frontend_rust_type(&self) -> &'static str {
         match self {
-            BytesType::Vec => "::prost::alloc::vec::Vec<u8>",
-            BytesType::Bytes => "::prost::bytes::Bytes",
+            // BytesType::Vec => "::prost::alloc::vec::Vec<u8>",
+            BytesType::Vec => "::mrpc::alloc::Vec<u8>",
+            // BytesType::Bytes => "::prost::bytes::Bytes",
+            BytesType::Bytes => panic!("mRPC bytes feature not supported yet"),
         }
     }
 }
