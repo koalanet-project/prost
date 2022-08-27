@@ -944,10 +944,12 @@ impl sealed::BytesAdapter for Vec<u8> {
 }
 
 #[cfg(feature = "mrpc-frontend")]
-impl BytesAdapter for shm::vec::Vec<u8> {}
+impl<A: shm::alloc::ShmAllocator + Default + 'static> BytesAdapter for shm::vec::Vec<u8, A> {}
 
 #[cfg(feature = "mrpc-frontend")]
-impl sealed::BytesAdapter for shm::vec::Vec<u8> {
+impl<A: shm::alloc::ShmAllocator + Default + 'static> sealed::BytesAdapter
+    for shm::vec::Vec<u8, A>
+{
     fn len(&self) -> usize {
         shm::vec::Vec::len(self)
     }
