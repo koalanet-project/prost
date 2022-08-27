@@ -944,12 +944,12 @@ impl sealed::BytesAdapter for Vec<u8> {
 }
 
 #[cfg(feature = "mrpc-frontend")]
-impl BytesAdapter for mrpc::alloc::Vec<u8> {}
+impl BytesAdapter for shm::vec::Vec<u8> {}
 
 #[cfg(feature = "mrpc-frontend")]
-impl sealed::BytesAdapter for mrpc::alloc::Vec<u8> {
+impl sealed::BytesAdapter for shm::vec::Vec<u8> {
     fn len(&self) -> usize {
-        mrpc::alloc::Vec::len(self)
+        shm::vec::Vec::len(self)
     }
 
     fn replace_with<B>(&mut self, mut buf: B)
