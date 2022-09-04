@@ -790,7 +790,7 @@ impl<'a> CodeGenerator<'a> {
             Type::Int32 | Type::Sfixed32 | Type::Sint32 | Type::Enum => String::from("i32"),
             Type::Int64 | Type::Sfixed64 | Type::Sint64 => String::from("i64"),
             Type::Bool => String::from("bool"),
-            Type::String => String::from("::mrpc_shadow::String"),
+            Type::String => String::from("::mrpc_marshal::shadow::String"),
             Type::Bytes => self
                 .config
                 .bytes_type
