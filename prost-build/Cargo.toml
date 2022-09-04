@@ -17,7 +17,7 @@ default = []
 vendored = []
 # When MSRV moves to 1.60, these can change to dep:
 cleanup-markdown = ["pulldown-cmark", "pulldown-cmark-to-cmark"]
-mrpc-frontend = []
+mrpc-frontend = ["prost/mrpc-frontend"]
 mrpc-backend = []
 
 [dependencies]

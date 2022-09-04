@@ -18,6 +18,9 @@ use crate::{
     DecodeError, Message,
 };
 
+#[cfg(feature = "mrpc")]
+use crate::encoding::shm_string;
+
 /// `google.protobuf.BoolValue`
 impl Message for bool {
     fn encode_raw<B>(&self, buf: &mut B)
@@ -322,6 +325,44 @@ impl Message for String {
     }
 }
 
+#[cfg(feature = "mrpc")]
+impl Message for mrpc::alloc::String {
+    fn encode_raw<B>(&self, buf: &mut B)
+    where
+        B: BufMut,
+    {
+        if !self.is_empty() {
+            shm_string::encode(1, self, buf)
+        }
+    }
+    fn merge_field<B>(
+        &mut self,
+        tag: u32,
+        wire_type: WireType,
+        buf: &mut B,
+        ctx: DecodeContext,
+    ) -> Result<(), DecodeError>
+    where
+        B: Buf,
+    {
+        if tag == 1 {
+            shm_string::merge(wire_type, self, buf, ctx)
+        } else {
+            skip_field(wire_type, tag, buf, ctx)
+        }
+    }
+    fn encoded_len(&self) -> usize {
+        if !self.is_empty() {
+            shm_string::encoded_len(1, self)
+        } else {
+            0
+        }
+    }
+    fn clear(&mut self) {
+        self.clear();
+    }
+}
+
 /// `google.protobuf.BytesValue`
 impl Message for Vec<u8> {
     fn encode_raw<B>(&self, buf: &mut B)
@@ -423,40 +464,40 @@ impl Message for () {
     fn clear(&mut self) {}
 }
 
-#[cfg(feature = "mrpc")]
-impl Message for mrpc::alloc::Vec<u8> {
-    fn encode_raw<B>(&self, buf: &mut B)
-    where
-        B: BufMut,
-    {
-        if !self.is_empty() {
-            bytes::encode(1, self, buf);
-        }
-    }
-    fn merge_field<B>(
-        &mut self,
-        tag: u32,
-        wire_type: WireType,
-        buf: &mut B,
-        ctx: DecodeContext,
-    ) -> Result<(), DecodeError>
-    where
-        B: Buf,
-    {
-        if tag == 1 {
-            bytes::merge(wire_type, self, buf, ctx)
-        } else {
-            skip_field(wire_type, tag, buf, ctx)
-        }
-    }
-    fn encoded_len(&self) -> usize {
-        if !self.is_empty() {
-            bytes::encoded_len(1, self)
-        } else {
-            0
-        }
-    }
-    fn clear(&mut self) {
-        self.clear();
-    }
-}
+// #[cfg(feature = "mrpc")]
+// impl Message for mrpc::alloc::Vec<u8> {
+//     fn encode_raw<B>(&self, buf: &mut B)
+//     where
+//         B: BufMut,
+//     {
+//         if !self.is_empty() {
+//             bytes::encode(1, self, buf);
+//         }
+//     }
+//     fn merge_field<B>(
+//         &mut self,
+//         tag: u32,
+//         wire_type: WireType,
+//         buf: &mut B,
+//         ctx: DecodeContext,
+//     ) -> Result<(), DecodeError>
+//     where
+//         B: Buf,
+//     {
+//         if tag == 1 {
+//             bytes::merge(wire_type, self, buf, ctx)
+//         } else {
+//             skip_field(wire_type, tag, buf, ctx)
+//         }
+//     }
+//     fn encoded_len(&self) -> usize {
+//         if !self.is_empty() {
+//             bytes::encoded_len(1, self)
+//         } else {
+//             0
+//         }
+//     }
+//     fn clear(&mut self) {
+//         self.clear();
+//     }
+// }

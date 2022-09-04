@@ -432,19 +432,36 @@ macro_rules! encode_repeated {
     };
 }
 
+// Trait for Vec and shm::alloc::Vec
+pub trait RepeatedCollectionAdapter<T> {
+    fn push(&mut self, val: T);
+}
+
+impl<T> RepeatedCollectionAdapter<T> for Vec<T> {
+    fn push(&mut self, val: T) { Vec::push(self, val); }
+}
+
+#[cfg(feature = "mrpc-frontend")]
+impl<T, A: shm::alloc::ShmAllocator> RepeatedCollectionAdapter<T> for shm::vec::Vec<T, A> {
+    fn push(&mut self, val: T) { shm::vec::Vec::push(self, val); }
+}
+
+
 /// Helper macro which emits a `merge_repeated` function for the numeric type.
 macro_rules! merge_repeated_numeric {
     ($ty:ty,
      $wire_type:expr,
      $merge:ident,
      $merge_repeated:ident) => {
-        pub fn $merge_repeated<B>(
+        pub fn $merge_repeated<R, B>(
             wire_type: WireType,
-            values: &mut Vec<$ty>,
+            // values: &mut Vec<$ty>,
+            values: &mut R,
             buf: &mut B,
             ctx: DecodeContext,
         ) -> Result<(), DecodeError>
         where
+            R: RepeatedCollectionAdapter<$ty>,
             B: Buf,
         {
             if wire_type == WireType::LengthDelimited {
@@ -761,7 +778,8 @@ macro_rules! length_delimited {
 
         pub fn merge_repeated<B>(
             wire_type: WireType,
-            values: &mut Vec<$ty>,
+            // values: &mut Vec<$ty>,
+            values: &mut dyn RepeatedCollectionAdapter<$ty>,
             buf: &mut B,
             ctx: DecodeContext,
         ) -> Result<(), DecodeError>
@@ -791,26 +809,33 @@ macro_rules! length_delimited {
     };
 }
 
-pub mod string {
-    use super::*;
+// We have our publicly implementable StringAdapter
+pub trait StringAdapter {
+    fn len(&self) -> usize;
 
-    pub fn encode<B>(tag: u32, value: &String, buf: &mut B)
-    where
-        B: BufMut,
-    {
-        encode_key(tag, WireType::LengthDelimited, buf);
-        encode_varint(value.len() as u64, buf);
-        buf.put_slice(value.as_bytes());
-    }
-    pub fn merge<B>(
+    fn as_bytes(&self) -> &[u8];
+
+    fn merge<B>(
+        &mut self,
         wire_type: WireType,
-        value: &mut String,
         buf: &mut B,
         ctx: DecodeContext,
     ) -> Result<(), DecodeError>
     where
-        B: Buf,
-    {
+        B: Buf;
+}
+
+impl StringAdapter for String {
+    fn len(&self) -> usize { self.len() }
+    fn as_bytes(&self) -> &[u8] { self.as_bytes() }
+    fn merge<B>(
+        &mut self,
+        wire_type: WireType,
+        buf: &mut B,
+        ctx: DecodeContext,
+    ) -> Result<(), DecodeError>
+    where
+        B: Buf {
         // ## Unsafety
         //
         // `string::merge` reuses `bytes::merge`, with an additional check of utf-8
@@ -833,7 +858,7 @@ pub mod string {
                 }
             }
 
-            let drop_guard = DropGuard(value.as_mut_vec());
+            let drop_guard = DropGuard(self.as_mut_vec());
             bytes::merge_one_copy(wire_type, drop_guard.0, buf, ctx)?;
             match str::from_utf8(drop_guard.0) {
                 Ok(_) => {
@@ -847,8 +872,73 @@ pub mod string {
             }
         }
     }
+}
 
-    length_delimited!(String);
+#[cfg(feature = "mrpc-frontend")]
+impl<A: shm::alloc::ShmAllocator + Default + 'static> StringAdapter for shm::string::String<A> {
+    fn len(&self) -> usize { self.len() }
+    fn as_bytes(&self) -> &[u8] { self.as_bytes() }
+    fn merge<B>(
+        &mut self,
+        wire_type: WireType,
+        buf: &mut B,
+        ctx: DecodeContext,
+    ) -> Result<(), DecodeError>
+    where
+        B: Buf {
+        unsafe {
+            struct DropGuard<'a, A: shm::alloc::ShmAllocator + Default>(
+                &'a mut shm::vec::Vec<u8, A>,
+            );
+            impl<'a, A: shm::alloc::ShmAllocator + Default> Drop for DropGuard<'a, A> {
+                #[inline]
+                fn drop(&mut self) {
+                    self.0.clear();
+                }
+            }
+
+            let drop_guard = DropGuard(self.as_mut_vec());
+            bytes::merge_one_copy(wire_type, drop_guard.0, buf, ctx)?;
+            match str::from_utf8(drop_guard.0) {
+                Ok(_) => {
+                    // Success; do not clear the bytes.
+                    mem::forget(drop_guard);
+                    Ok(())
+                }
+                Err(_) => Err(DecodeError::new(
+                    "invalid string value: data is not UTF-8 encoded",
+                )),
+            }
+        }
+    }
+}
+
+pub mod string {
+    use super::*;
+
+    pub fn encode<S, B>(tag: u32, value: &S, buf: &mut B)
+    where
+        S: StringAdapter,
+        B: BufMut,
+    {
+        encode_key(tag, WireType::LengthDelimited, buf);
+        encode_varint(value.len() as u64, buf);
+        buf.put_slice(value.as_bytes());
+    }
+    pub fn merge<S, B>(
+        wire_type: WireType,
+        value: &mut S,
+        buf: &mut B,
+        ctx: DecodeContext,
+    ) -> Result<(), DecodeError>
+    where
+        S: StringAdapter,
+        B: Buf,
+    {
+        value.merge(wire_type, buf, ctx)
+    }
+
+    length_delimited!(impl StringAdapter + Default);
 
     #[cfg(test)]
     mod test {
@@ -868,6 +958,70 @@ pub mod string {
                 super::test::check_collection_type(value, tag, WireType::LengthDelimited,
                                                    encode_repeated, merge_repeated,
                                                    encoded_len_repeated)?;
+            }
+        }
+    }
+}
+
+#[cfg(feature = "mrpc-frontend")]
+pub mod shm_string {
+    use super::*;
+
+    pub fn encode<B, A: shm::alloc::ShmAllocator + Default>(
+        tag: u32,
+        value: &shm::string::String<A>,
+        buf: &mut B,
+    ) where
+        B: BufMut,
+    {
+        encode_key(tag, WireType::LengthDelimited, buf);
+        encode_varint(value.len() as u64, buf);
+        buf.put_slice(value.as_bytes());
+    }
+    pub fn merge<B, A: shm::alloc::ShmAllocator + Default + 'static>(
+        wire_type: WireType,
+        value: &mut shm::string::String<A>,
+        buf: &mut B,
+        ctx: DecodeContext,
+    ) -> Result<(), DecodeError>
+    where
+        B: Buf,
+    {
+        // ## Unsafety
+        //
+        // `string::merge` reuses `bytes::merge`, with an additional check of utf-8
+        // well-formedness. If the utf-8 is not well-formed, or if any other error occurs, then the
+        // string is cleared, so as to avoid leaking a string field with invalid data.
+        //
+        // This implementation uses the unsafe `String::as_mut_vec` method instead of the safe
+        // alternative of temporarily swapping an empty `String` into the field, because it results
+        // in up to 10% better performance on the protobuf message decoding benchmarks.
+        //
+        // It's required when using `String::as_mut_vec` that invalid utf-8 data not be leaked into
+        // the backing `String`. To enforce this, even in the event of a panic in `bytes::merge` or
+        // in the buf implementation, a drop guard is used.
+        unsafe {
+            struct DropGuard<'a, A: shm::alloc::ShmAllocator + Default>(
+                &'a mut shm::vec::Vec<u8, A>,
+            );
+            impl<'a, A: shm::alloc::ShmAllocator + Default> Drop for DropGuard<'a, A> {
+                #[inline]
+                fn drop(&mut self) {
+                    self.0.clear();
+                }
+            }
+
+            let drop_guard = DropGuard(value.as_mut_vec());
+            bytes::merge_one_copy(wire_type, drop_guard.0, buf, ctx)?;
+            match str::from_utf8(drop_guard.0) {
+                Ok(_) => {
+                    // Success; do not clear the bytes.
+                    mem::forget(drop_guard);
+                    Ok(())
+                }
+                Err(_) => Err(DecodeError::new(
+                    "invalid string value: data is not UTF-8 encoded",
+                )),
             }
         }
     }
