@@ -438,14 +438,17 @@ pub trait RepeatedCollectionAdapter<T> {
 }
 
 impl<T> RepeatedCollectionAdapter<T> for Vec<T> {
-    fn push(&mut self, val: T) { Vec::push(self, val); }
+    fn push(&mut self, val: T) {
+        Vec::push(self, val);
+    }
 }
 
 #[cfg(feature = "mrpc-frontend")]
 impl<T, A: shm::alloc::ShmAllocator> RepeatedCollectionAdapter<T> for shm::vec::Vec<T, A> {
-    fn push(&mut self, val: T) { shm::vec::Vec::push(self, val); }
+    fn push(&mut self, val: T) {
+        shm::vec::Vec::push(self, val);
+    }
 }
-
 
 /// Helper macro which emits a `merge_repeated` function for the numeric type.
 macro_rules! merge_repeated_numeric {
@@ -826,8 +829,12 @@ pub trait StringAdapter {
 }
 
 impl StringAdapter for String {
-    fn len(&self) -> usize { self.len() }
-    fn as_bytes(&self) -> &[u8] { self.as_bytes() }
+    fn len(&self) -> usize {
+        self.len()
+    }
+    fn as_bytes(&self) -> &[u8] {
+        self.as_bytes()
+    }
     fn merge<B>(
         &mut self,
         wire_type: WireType,
@@ -835,7 +842,8 @@ impl StringAdapter for String {
         ctx: DecodeContext,
     ) -> Result<(), DecodeError>
     where
-        B: Buf {
+        B: Buf,
+    {
         // ## Unsafety
         //
         // `string::merge` reuses `bytes::merge`, with an additional check of utf-8
@@ -876,8 +884,12 @@ impl StringAdapter for String {
 
 #[cfg(feature = "mrpc-frontend")]
 impl<A: shm::alloc::ShmAllocator + Default + 'static> StringAdapter for shm::string::String<A> {
-    fn len(&self) -> usize { self.len() }
-    fn as_bytes(&self) -> &[u8] { self.as_bytes() }
+    fn len(&self) -> usize {
+        self.len()
+    }
+    fn as_bytes(&self) -> &[u8] {
+        self.as_bytes()
+    }
     fn merge<B>(
         &mut self,
         wire_type: WireType,
@@ -885,7 +897,8 @@ impl<A: shm::alloc::ShmAllocator + Default + 'static> StringAdapter for shm::str
         ctx: DecodeContext,
     ) -> Result<(), DecodeError>
     where
-        B: Buf {
+        B: Buf,
+    {
         unsafe {
             struct DropGuard<'a, A: shm::alloc::ShmAllocator + Default>(
                 &'a mut shm::vec::Vec<u8, A>,
