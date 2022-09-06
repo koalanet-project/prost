@@ -1299,14 +1299,15 @@ pub mod message {
         }
     }
 
-    pub fn merge_repeated<M, B>(
+    pub fn merge_repeated<M, B, R>(
         wire_type: WireType,
-        messages: &mut Vec<M>,
+        messages: &mut R,
         buf: &mut B,
         ctx: DecodeContext,
     ) -> Result<(), DecodeError>
     where
         M: Message + Default,
+        R: RepeatedCollectionAdapter<M>,
         B: Buf,
     {
         check_wire_type(WireType::LengthDelimited, wire_type)?;
@@ -1389,15 +1390,16 @@ pub mod group {
         }
     }
 
-    pub fn merge_repeated<M, B>(
+    pub fn merge_repeated<M, B, R>(
         tag: u32,
         wire_type: WireType,
-        messages: &mut Vec<M>,
+        messages: &mut R,
         buf: &mut B,
         ctx: DecodeContext,
     ) -> Result<(), DecodeError>
     where
         M: Message + Default,
+        R: RepeatedCollectionAdapter<M>,
         B: Buf,
     {
         check_wire_type(WireType::StartGroup, wire_type)?;
