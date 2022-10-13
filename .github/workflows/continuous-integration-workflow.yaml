@@ -14,7 +14,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: koalanet-project/koala
-          ssh-key: ${{ secrets.DEPLOY_KEY_KOALA }}
+          ssh-key: ${{ secrets.DEPLOY_KEY_PHOENIX }}
           ref: main
           path: koala
       - name: replace manifest
@@ -44,7 +44,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: koalanet-project/koala
-          ssh-key: ${{ secrets.DEPLOY_KEY_KOALA }}
+          ssh-key: ${{ secrets.DEPLOY_KEY_PHOENIX }}
           ref: main
           path: koala
       - name: replace manifest
@@ -83,7 +83,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: koalanet-project/koala
-          ssh-key: ${{ secrets.DEPLOY_KEY_KOALA }}
+          ssh-key: ${{ secrets.DEPLOY_KEY_PHOENIX }}
           ref: main
           path: koala
       - name: replace manifest
@@ -120,7 +120,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: koalanet-project/koala
-          ssh-key: ${{ secrets.DEPLOY_KEY_KOALA }}
+          ssh-key: ${{ secrets.DEPLOY_KEY_PHOENIX }}
           ref: main
           path: koala
       - name: replace manifest
@@ -156,7 +156,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: koalanet-project/koala
-          ssh-key: ${{ secrets.DEPLOY_KEY_KOALA }}
+          ssh-key: ${{ secrets.DEPLOY_KEY_PHOENIX }}
           ref: main
           path: koala
       - name: replace manifest
@@ -208,7 +208,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: koalanet-project/koala
-          ssh-key: ${{ secrets.DEPLOY_KEY_KOALA }}
+          ssh-key: ${{ secrets.DEPLOY_KEY_PHOENIX }}
           ref: main
           path: koala
       - name: replace manifest
