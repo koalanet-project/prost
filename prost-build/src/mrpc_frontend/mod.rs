@@ -1,5 +1,3 @@
-// TODO: enum & one_of fields support
-// in phoenix mrpc, code_generator should use Rust's enum type
-// for protos' Enumerations fields, instead of a a numeric value (i32)
+// TODO: one_of fields support
 
 pub(crate) mod code_generator;
