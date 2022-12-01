@@ -183,6 +183,7 @@ impl<'a> CodeGenerator<'a> {
         self.append_doc(&fq_message_name, None);
         self.append_type_attributes(&fq_message_name);
         self.push_indent();
+        self.buf.push_str("#[repr(C)]");
         self.buf
             .push_str("#[derive(Debug, ::mrpc_derive::Message)]\n");
         self.push_indent();
@@ -498,6 +499,7 @@ impl<'a> CodeGenerator<'a> {
         let oneof_name = format!("{}.{}", fq_message_name, oneof.name());
         self.append_type_attributes(&oneof_name);
         self.push_indent();
+        self.buf.push_str("#[repr(C)]");
         self.buf
             .push_str("#[derive(Clone, PartialEq, ::prost::Oneof)]\n");
         self.push_indent();
