@@ -185,7 +185,7 @@ impl<'a> CodeGenerator<'a> {
         self.push_indent();
         self.buf.push_str("#[repr(C)]");
         self.buf
-            .push_str("#[derive(Clone, PartialEq, Eq, ::prost::Message)]\n");
+            .push_str("#[derive(Clone, PartialEq, ::prost::Message)]\n");
         self.push_indent();
         self.buf.push_str("pub struct ");
         self.buf.push_str(&to_upper_camel(&message_name));

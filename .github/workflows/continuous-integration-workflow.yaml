@@ -19,7 +19,6 @@ jobs:
           path: phoenix
       - name: replace manifest
         run: mv .github/workflows/Cargo.toml Cargo.toml
-          | rm phoenix/Cargo.toml
       - name: install toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -49,7 +48,6 @@ jobs:
           path: phoenix
       - name: replace manifest
         run: mv .github/workflows/Cargo.toml Cargo.toml
-          | rm phoenix/Cargo.toml
       - name: install toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -88,7 +86,6 @@ jobs:
           path: phoenix
       - name: replace manifest
         run: mv .github/workflows/Cargo.toml Cargo.toml
-          | rm phoenix/Cargo.toml
       - name: install ninja
         uses: seanmiddleditch/gha-setup-ninja@v3
       - name: cargo update -Zminimal-versions
@@ -125,7 +122,6 @@ jobs:
           path: phoenix
       - name: replace manifest
         run: mv .github/workflows/Cargo.toml Cargo.toml
-          | rm phoenix/Cargo.toml
       - name: install toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -161,7 +157,6 @@ jobs:
           path: phoenix
       - name: replace manifest
         run: mv .github/workflows/Cargo.toml Cargo.toml
-          | rm phoenix/Cargo.toml
       - name: install toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -213,7 +208,6 @@ jobs:
           path: phoenix
       - name: replace manifest
         run: mv .github/workflows/Cargo.toml Cargo.toml
-          | rm phoenix/Cargo.toml
       - name: install toolchain
         uses: actions-rs/toolchain@v1
         with:
