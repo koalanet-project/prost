@@ -34,6 +34,8 @@ exclude = [
   # Same counts for the afl fuzz targets
   "afl",
   "test-vendored",
+  # Exclude phoenix for CI.
+  "phoenix",
 ]
 
 [lib]
