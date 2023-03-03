@@ -44,12 +44,12 @@ bench = false
 default = ["prost-derive", "std"]
 no-recursion-limit = []
 std = []
-mrpc-frontend = ["dep:mrpc"]
+mrpc-frontend = ["dep:shm"]
 
 [dependencies]
 bytes = { version = "1", default-features = false }
 prost-derive = { version = "0.10.0", path = "prost-derive", optional = true }
-mrpc = { path = "phoenix/src/mrpc", optional = true }
+shm = { path = "phoenix/src/shm", features = ["mrpc"], optional = true }
 
 [dev-dependencies]
 criterion = "0.3"
