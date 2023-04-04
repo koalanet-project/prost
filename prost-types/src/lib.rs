@@ -318,6 +318,7 @@ impl From<std::time::SystemTime> for Timestamp {
 #[derive(Debug, PartialEq)]
 #[non_exhaustive]
 pub enum TimestampError {
+    #[cfg(feature = "std")]
     /// Indicates that a [`Timestamp`] could not be converted to
     /// [`SystemTime`][std::time::SystemTime] because it is out of range.
     ///
@@ -337,6 +338,7 @@ pub enum TimestampError {
 impl fmt::Display for TimestampError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            #[cfg(feature = "std")]
             TimestampError::OutOfSystemRange(timestamp) => {
                 write!(
                     f,
